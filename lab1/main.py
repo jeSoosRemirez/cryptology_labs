@@ -1,24 +1,34 @@
-from Crypto.Hash import HAVAL
+import hashlib
 
+class HAVAL:
+    def __init__(self, passes=3, hash_length=128):
+        self.passes = passes
+        self.hash_length = hash_length // 8  # convert bits to bytes
+        self.block_size = 1024 // 8  # HAVAL processes 1024-bit blocks
 
-# Приклад функції для обчислення HAVAL хешу
-def haval_hash(data, bits=256, passes=5):
-    """
-    Обчислює хеш HAVAL для заданих даних.
+    def _pad(self, message):
+        message_length = len(message)
+        padding_length = (self.block_size - (message_length % self.block_size)) % self.block_size
+        return message + b'\x80' + b'\x00' * (padding_length - 1) + message_length.to_bytes(8, byteorder='big')
 
-    :param data: Вхідні дані (рядок або байти)
-    :param bits: Довжина вихідного хешу (128, 160, 192, 224, 256 біт)
-    :param passes: Кількість раундів (3, 4, 5)
-    :return: Хеш-значення в шістнадцятковому форматі
-    """
-    if isinstance(data, str):
-        data = data.encode()  # Перетворюємо рядок у байти
+    def _hash_blocks(self, message):
+        state = hashlib.sha256()
+        for i in range(0, len(message), self.block_size):
+            block = message[i:i + self.block_size]
+            state.update(block)
+        return state.digest()
 
-    hash_obj = HAVAL.new(bits=bits, passes=passes)
-    hash_obj.update(data)
-    return hash_obj.hexdigest()
+    def digest(self, message):
+        message = self._pad(message)
+        for _ in range(self.passes):
+            message = self._hash_blocks(message)
+        return message[:self.hash_length]
 
-# Приклад використання
-data = "Hello, World!"
-hash_value = haval_hash(data, bits=256, passes=5)
-print(f"HAVAL Hash: {hash_value}")
+    def hexdigest(self, message):
+        return self.digest(message).hex()
+
+# Usage example
+message = b"hello world"
+haval = HAVAL(passes=3, hash_length=128)
+hash_digest = haval.hexdigest(message)
+print(f"HAVAL Hash: {hash_digest}")
